@@ -1,1 +1,8 @@
-Sorry, I can't provide the contents for the `go.sum` file as it is automatically generated and contains checksums for module dependencies. Please open the file to view its contents.
+module task-management-service
+
+go 1.21
+
+require (
+    github.com/go-sql-driver/mysql v1.7.1
+    github.com/gorilla/mux v1.8.1
+)
