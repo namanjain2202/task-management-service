@@ -1,71 +1,129 @@
 package handlers
 
 import (
+    "encoding/json"
     "net/http"
-    "github.com/gin-gonic/gin"
+    "strconv"
+    
     "task-management-service/internal/models"
     "task-management-service/internal/service"
+    "task-management-service/pkg/utils"
+    
+    "github.com/gorilla/mux"
 )
 
-// TaskHandler handles HTTP requests related to tasks.
 type TaskHandler struct {
-    TaskService service.TaskService
+    taskService service.TaskService
 }
 
-// NewTaskHandler creates a new TaskHandler.
-func NewTaskHandler(taskService service.TaskService) *TaskHandler {
-    return &TaskHandler{TaskService: taskService}
+func NewTaskHandler(service service.TaskService) *TaskHandler {
+    return &TaskHandler{taskService: service}
 }
 
-// CreateTask handles the creation of a new task.
-func (h *TaskHandler) CreateTask(c *gin.Context) {
+// CreateTask handles task creation
+func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
     var task models.Task
-    if err := c.ShouldBindJSON(&task); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+    if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
-    createdTask, err := h.TaskService.CreateTask(task)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    
+    if err := h.taskService.CreateTask(r.Context(), &task); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    c.JSON(http.StatusCreated, createdTask)
+    
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(task)
 }
 
-// GetTasks handles retrieving a list of tasks with pagination and filtering.
-func (h *TaskHandler) GetTasks(c *gin.Context) {
-    // Implement pagination and filtering logic here
-    tasks, err := h.TaskService.GetTasks()
+// GetTask handles single task retrieval
+func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    id, err := strconv.ParseUint(vars["id"], 10, 64)
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        http.Error(w, "Invalid task ID", http.StatusBadRequest)
         return
     }
-    c.JSON(http.StatusOK, tasks)
+    
+    task, err := h.taskService.GetTask(r.Context(), uint(id))
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusNotFound)
+        return
+    }
+    
+    json.NewEncoder(w).Encode(task)
 }
 
-// UpdateTask handles updating an existing task.
-func (h *TaskHandler) UpdateTask(c *gin.Context) {
-    id := c.Param("id")
+// ListTasks handles task listing with pagination and filtering
+func (h *TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
+    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+    if page < 1 {
+        page = 1
+    }
+    
+    pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+    if pageSize < 1 {
+        pageSize = 10
+    }
+    
+    status := r.URL.Query().Get("status")
+    
+    tasks, total, err := h.taskService.ListTasks(r.Context(), page, pageSize, status)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    response := map[string]interface{}{
+        "tasks": tasks,
+        "pagination": utils.Pagination{
+            Page:       page,
+            PageSize:   pageSize,
+            TotalItems: total,
+        },
+    }
+    
+    json.NewEncoder(w).Encode(response)
+}
+
+// UpdateTask handles task updates
+func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    id, err := strconv.ParseUint(vars["id"], 10, 64)
+    if err != nil {
+        http.Error(w, "Invalid task ID", http.StatusBadRequest)
+        return
+    }
+    
     var task models.Task
-    if err := c.ShouldBindJSON(&task); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+    if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
-    updatedTask, err := h.TaskService.UpdateTask(id, task)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    task.ID = uint(id)
+    
+    if err := h.taskService.UpdateTask(r.Context(), &task); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    c.JSON(http.StatusOK, updatedTask)
+    
+    json.NewEncoder(w).Encode(task)
 }
 
-// DeleteTask handles deleting a task.
-func (h *TaskHandler) DeleteTask(c *gin.Context) {
-    id := c.Param("id")
-    err := h.TaskService.DeleteTask(id)
+// DeleteTask handles task deletion
+func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    id, err := strconv.ParseUint(vars["id"], 10, 64)
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        http.Error(w, "Invalid task ID", http.StatusBadRequest)
         return
     }
-    c.JSON(http.StatusNoContent, nil)
+    
+    if err := h.taskService.DeleteTask(r.Context(), uint(id)); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    w.WriteHeader(http.StatusNoContent)
 }
