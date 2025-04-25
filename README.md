@@ -48,3 +48,41 @@ This project is a Task Management System microservice that allows users to creat
 
 ## Conclusion
 This microservice provides a robust solution for managing tasks and can be integrated into larger systems as needed. Further enhancements can include additional features such as user management and notifications.
+
+A microservice for managing tasks with CRUD operations, pagination, and status filtering.
+
+## Features
+- Create, Read, Update, Delete tasks
+- Pagination support
+- Status filtering
+- Soft delete
+- RESTful API
+
+## API Endpoints
+- `POST /tasks` - Create a new task
+- `GET /tasks` - List tasks with pagination and filtering
+- `GET /tasks/{id}` - Get a specific task
+- `PUT /tasks/{id}` - Update a task
+- `DELETE /tasks/{id}` - Delete a task
+
+## Setup
+1. Install dependencies:
+```bash
+go mod download
+```
+
+2. Set up environment variables:
+```bash
+export DATABASE_URL="root:password@tcp(localhost:3306)/taskdb?parseTime=true"
+export SERVER_PORT=":8080"
+```
+
+3. Run the service:
+```bash
+go run cmd/main.go
+```
+
+## Docker Support
+```bash
+docker build -t task-service .
+docker run -p 8080:8080 task-service
