@@ -1,38 +1,88 @@
 package errors
 
-import "fmt"
+import "testing"
 
-// CustomError defines a custom error type that includes a message and a code.
-type CustomError struct {
-    Code    int
-    Message string
-}
+func TestCustomError(t *testing.T) {
+    tests := []struct {
+        name       string
+        code       int
+        message    string
+        wantString string
+    }{
+        {
+            name:       "Not Found Error",
+            code:       404,
+            message:    "Resource not found",
+            wantString: "Error 404: Resource not found",
+        },
+        {
+            name:       "Unauthorized Error",
+            code:       401,
+            message:    "Unauthorized access",
+            wantString: "Error 401: Unauthorized access",
+        },
+    }
 
-// New creates a new CustomError with the given code and message.
-func New(code int, message string) *CustomError {
-    return &CustomError{
-        Code:    code,
-        Message: message,
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := New(tt.code, tt.message)
+            if err.Error() != tt.wantString {
+                t.Errorf("CustomError.Error() = %v, want %v", err.Error(), tt.wantString)
+            }
+        })
     }
 }
 
-// Error implements the error interface for CustomError.
-func (e *CustomError) Error() string {
-    return fmt.Sprintf("Error %d: %s", e.Code, e.Message)
+func TestIsNotFound(t *testing.T) {
+    tests := []struct {
+        name string
+        err  error
+        want bool
+    }{
+        {
+            name: "Is Not Found",
+            err:  New(404, "Not found"),
+            want: true,
+        },
+        {
+            name: "Is Not Not Found",
+            err:  New(500, "Internal error"),
+            want: false,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            if got := IsNotFound(tt.err); got != tt.want {
+                t.Errorf("IsNotFound() = %v, want %v", got, tt.want)
+            }
+        })
+    }
 }
 
-// IsNotFound checks if the error is a not found error.
-func IsNotFound(err error) bool {
-    if customErr, ok := err.(*CustomError); ok {
-        return customErr.Code == 404
+func TestIsUnauthorized(t *testing.T) {
+    tests := []struct {
+        name string
+        err  error
+        want bool
+    }{
+        {
+            name: "Is Unauthorized",
+            err:  New(401, "Unauthorized"),
+            want: true,
+        },
+        {
+            name: "Is Not Unauthorized",
+            err:  New(500, "Internal error"),
+            want: false,
+        },
     }
-    return false
-}
 
-// IsUnauthorized checks if the error is an unauthorized error.
-func IsUnauthorized(err error) bool {
-    if customErr, ok := err.(*CustomError); ok {
-        return customErr.Code == 401
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            if got := IsUnauthorized(tt.err); got != tt.want {
+                t.Errorf("IsUnauthorized() = %v, want %v", got, tt.want)
+            }
+        })
     }
-    return false
 }
